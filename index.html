@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ohana AI</title>
+    <!-- favIcon -->
+    <link rel="icon" href="./images/logo.ico" type="image/x-icon">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="./lib/chessboard-1.0.0.css">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- font -->
+    <link rel="stylesheet" 
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" 
+        integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" 
+        crossorigin="anonymous" 
+        referrerpolicy="no-referrer" 
+    />
+
+</head>
+
+<body>
+
+    <!-- JQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <!-- chessoard.js -->
+    <script src="./lib/chessboard-1.0.0.js"></script>
+    <!-- chess.js -->
+    <script src="./lib/chess.js"></script>
+    <!-- scipt -->
+    <script src="script.js"></script>
+
+    <!-- Content -->
+    <div id="main-container">
+        <div id="header-container">
+            <img src="./images/logo.png" alt="uwu">
+            <div class="text-header">
+                <h1>Ohana AI</h1>
+                <h2>by Simon Schmid</h2>
+            </div>
+        </div>
+        <div id="myBoard"></div>
+        <h4 id="status"></h4>
+        <button id="resetButton" class="overlay-button">
+            <i class="fas fa-redo"></i>
+        </button>
+    </div>
+
+</body>
+</html>
