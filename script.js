@@ -1,30 +1,53 @@
 // script.js
 
 // --- Engine ---
-// Diese Engine nutzt die eingebaute Funktionalität von chess.js für Züge.
-class SimpleChessJsEngine {
+class OhanaAi {
     constructor(game) {
         this.game = game;
         this.pieceValues = {
-            'p': 1,  // Bauer (pawn)
-            'n': 3,  // Springer (knight)
-            'b': 3,  // Läufer (bishop)
-            'r': 5,  // Turm (rook)
-            'q': 9,  // Dame (queen)
-            'k': 0   // König (kein Wert beim Schlagen, da Spielende)
+            'p': 1,  // (pawn)
+            'n': 3,  // (knight)
+            'b': 3,  // (bishop)
+            'r': 5,  // (rook)
+            'q': 9,  // (queen)
+            'k': 0   // (king)
         };
-        this.CHECK_PENALTY = 10;
-        this.LOSS_PENALTY_MULTIPLIER = 1.2;
-        this.PAWN_ADVANCE_PENALTY = 0.5;
-        this.F_PAWN_MOVE_PENALTY = 2;
+
+        // Gewichtungen
+        this.CHECKMATE_LOSS_PENALTY = 99999;
+        this.CHECK_PENALTY = 20;
+        this.UNPROTECTED_LOSS_PENALTY = 1.0;
+        this.PAWN_ADVANCE_PENALTY = 0.8;
+        this.BAD_PAWN_MOVE_PENALTY = 2;
+        this.KING_MOVE_PENALTY = 1;
+        this.CASTLE_SHORT_BONUS = 1;
+        this.KNIGHT_ON_EDGE_PENALTY = 0.8;
+        this.FIANCHETTO_G7_BONUS = 0.6;
+        this.DEVELOPMENT_BONUS = 0.3;
 
     }
 
     makeMove() {
-        var possibleMoves = this.game.moves({ verbose: true }); // 'verbose: true' gibt detaillierte Zugobjekte zurück
+        var possibleMoves = this.game.moves({ verbose: true }); // 'verbose' gibt detaillierte Zugobjekte
         if (possibleMoves.length === 0) {
-            return null; // Kein Zug möglich
+            return null;
         }
+
+        // Eröffnung
+        if (this.game.turn() === 'b' && this.game.history().length < 2) { 
+            const allowedOpeningMoves = ['b6', 'Nc6', 'c5', 'd6', 'd5', 'e6', 'e5', 'Nf6', 'g6'];
+            possibleMoves = possibleMoves.filter(move => {
+                // move.san ist die Standard-Algebra-Notation
+                return allowedOpeningMoves.includes(move.san);
+            });
+
+            // Fallback
+            if (possibleMoves.length === 0) {
+                console.warn("Keine erlaubten Eröffnungszüge gefunden. Fällt auf zufälligen Zug zurück.");
+                possibleMoves = this.game.moves({ verbose: true }); // Ursprüngliche Liste wiederherstellen
+            }
+        }
+
         var bestMove = null;
         var bestMoveValue = -Infinity;
 
@@ -34,58 +57,131 @@ class SimpleChessJsEngine {
             var moveValue = 0;
 
             // Nächsten Zug simulieren
-            this.game.move(move); 
+            this.game.move(move);
 
-            // BEWERTUNG 1: Schlagzüge bevorzugen
-            if (move.captured) { // Wenn ein Feld 'captured' enthält, ist es ein Schlagzug
-                moveValue += this.pieceValues[move.captured] || 0;
+            // Selbst-Matt vermeiden
+            if (this.game.isCheckmate()) {
+                moveValue -= this.CHECKMATE_LOSS_PENALTY;
             }
-            // BEWERTUNG 2: Eigenes Schach vermeiden (höchste Priorität!)
-            if (this.game.inCheck()) { 
-                moveValue -= this.CHECK_PENALTY;
-            }
-            // BEWERTUNG 3: Verlust eigener Figuren vermeiden
-            // Hole alle möglichen Züge des Gegners (nach unserem simulierten Zug)
-            var opponentMoves = this.game.moves({ verbose: true });
-            var worstLossForThisMove = 0;
 
-            for (var j = 0; j < opponentMoves.length; j++) {
-                var oppMove = opponentMoves[j];
-                // Wenn der gegnerische Zug eine unserer Figuren schlägt
-                if (oppMove.captured) {
-                    // Der 'captured' Wert ist die Figur, die der Gegner schlägt.
-                    // Diese Figur gehört Ohana
-                    var lostPieceValue = this.pieceValues[oppMove.captured] || 0;
-                    // Wir wollen den maximalen Verlust für diesen Zug des Computers berücksichtigen
-                    if (lostPieceValue > worstLossForThisMove) {
-                        worstLossForThisMove = lostPieceValue;
+            // BEWERTUNG 0: Matt in 1 verhindern
+            if (!this.game.isGameOver()) {
+                var opponentMoves = this.game.moves({ verbose: true });
+                for (var j = 0; j < opponentMoves.length; j++) {
+                    var oppMove = opponentMoves[j];
+                    this.game.move(oppMove); 
+                    if (this.game.isCheckmate()) {
+                        moveValue -= this.CHECKMATE_LOSS_PENALTY;
+                        this.game.undo();
+                        break; // Matt gefunden -> Schleife abbrechen
                     }
+                    this.game.undo();
                 }
             }
 
-            // Ziehe den Wert des schlimmsten Verlusts ab, multipliziert mit einem Faktor
-            moveValue -= (worstLossForThisMove * this.LOSS_PENALTY_MULTIPLIER);
+            // BEWERTUNG 1: Schlagzüge bevorzugen
+            if (move.captured) {
+                moveValue += this.pieceValues[move.captured] || 0;
+            }
 
-            // NEU: BEWERTUNG 4: Negative Bewertung für vorrückende Bauernzüge ohne direkten Nutzen
+            // BEWERTUNG 2: Schach vermeiden
+            if (this.game.inCheck()) { 
+                moveValue -= this.CHECK_PENALTY;
+            }
+
+            // BEWERTUNG 3: Negativen Figur-Tausch vermeiden
+            var opponentCaptures = this.game.moves({ verbose: true }).filter(m => m.captured);
+            var worstNetLoss = 0; // Wir suchen den schlimmsten Netto-Verlust für diesen Zug
+
+            for (var j = 0; j < opponentCaptures.length; j++) {
+                var oppCaptureMove = opponentCaptures[j];
+                this.game.move(oppCaptureMove); // Simuliere den Schlag des Gegners
+
+                var lostPieceValue = this.pieceValues[oppCaptureMove.captured] || 0; // Wert der Figur, die wir verloren haben
+
+                var highestRecaptureValue = 0; // Welchen Wert können wir höchstens zurückschlagen?
+                var ourRecaptures = this.game.moves({ verbose: true }).filter(m => m.captured);
+
+                for (var k = 0; k < ourRecaptures.length; k++) {
+                    var ourRecaptureMove = ourRecaptures[k];
+                    var recapturedPieceValue = this.pieceValues[ourRecaptureMove.captured] || 0;
+                    if (recapturedPieceValue > highestRecaptureValue) {
+                        highestRecaptureValue = recapturedPieceValue;
+                    }
+                }
+                
+                // Berechne den Netto-Verlust: Wert der verlorenen Figur - Wert der höchsten zurückgeschlagenen Figur
+                var netLoss = lostPieceValue - highestRecaptureValue;
+
+                // Wenn dieser Netto-Verlust schlimmer ist als der bisher schlimmste, aktualisiere
+                if (netLoss > worstNetLoss) {
+                    worstNetLoss = netLoss;
+                }
+
+                this.game.undo(); // WICHTIG: Gegenschlag des Gegners rückgängig machen
+            }
+            // Ziehe den Netto-Verlust vom MoveValue ab
+            // Nur strafen, wenn es ein echter Verlust ist (netLoss > 0)
+            if (worstNetLoss > 0) {
+                 moveValue -= (worstNetLoss * this.UNPROTECTED_LOSS_PENALTY);
+            }
+
+            // BEWERTUNG 4: Negative Bewertung für vorrückende Bauernzüge ohne direkten Nutzen
             if (move.piece === 'p' && !move.captured) { // Nur Bauernzüge, die nicht schlagen
-                var toRank = parseInt(move.to[1]); // Die Reihe des Zielfeldes
-                // Für Schwarz (Computer) ist die gegnerische Hälfte die Reihen 1-4
-                if (this.game.turn() === 'w') { // Wenn nach dem Zug Weiß dran wäre, hat der schwarze Bauer seine Reihe erreicht
-                                                // Sprich, der schwarze Bauer ist auf Reihe 4, 3, 2 oder 1
+                var toRank = parseInt(move.to[1]);
+                // Für OhanaAI ist die gegnerische Hälfte die Reihen 1-4
+                if (this.game.turn() === 'w') {
                     if (toRank <= 4) { 
                         moveValue -= this.PAWN_ADVANCE_PENALTY;
                     }
                 }
             }
-
-            // NEU: BEWERTUNG 5: Negative Bewertung für den f-Bauer Zug
-            // Für Schwarz ist der f-Bauer von f7 nach f6 oder f5
+            // BEWERTUNG 5: Negative Bewertung für Fortress bruch
             if (move.piece === 'p' && move.from === 'f7' && (move.to === 'f6' || move.to === 'f5')) {
-                moveValue -= this.F_PAWN_MOVE_PENALTY;
+                moveValue -= this.BAD_PAWN_MOVE_PENALTY;
+            }
+            if (move.piece === 'p' && (move.from === 'g7' || move.from === 'g6') && move.to === 'g5') {
+                moveValue -= this.BAD_PAWN_MOVE_PENALTY;
             }
 
-            // Füge eine kleine Zufallszahl hinzu, um bei gleicher Bewertung zu variieren
-            moveValue += Math.random() * 0.1; // Fügt 0 bis 0.1 hinzu
+            // BEWERTUNG 6: Königssicherheit
+            if (move.piece === 'k') {
+                // 'flags' enthält Informationen über den Zugtyp
+                if (move.flags !== 'k') {
+                    moveValue -= this.KING_MOVE_PENALTY;
+                }
+            }
+
+            // BEWERTUNG 7: Bonus für kurze Rochade
+            if (move.flags === 'k') { 
+                moveValue += this.CASTLE_SHORT_BONUS;
+            }
+
+            // BEWERTUNG 8: Springer am Rande, große Schande
+            if (move.piece === 'n') {
+                var toFile = move.to[0];
+                if (toFile === 'a' || toFile === 'h') {
+                    moveValue -= this.KNIGHT_ON_EDGE_PENALTY;
+                }
+            }
+            
+            // BEWERTUNG 9: Bonus für Fianchetto auf g7
+            if (move.piece === 'b' && move.to === 'g7') {
+                moveValue += this.FIANCHETTO_G7_BONUS;
+            }
+
+            // BEWERTUNG 10: Bonus für Figuren-Entwicklung
+            if (move.piece === 'n' || move.piece === 'b') {
+                var fromRank = parseInt(move.from[1]);
+                var toRank = parseInt(move.to[1]);
+                // Ideale Entwicklungsreihen sind 6 und 5.
+                if ((fromRank === 7 || fromRank === 8) && (toRank === 6 || toRank === 5)) {
+                    moveValue += this.DEVELOPMENT_BONUS;
+                }
+            }
+
+            // Bei gleicher Bewertung zu variieren
+            moveValue += Math.random() * 0.1;
 
             // Wenn dieser Zug besser ist als der bisher beste, update bestMove
             if (moveValue > bestMoveValue) {
@@ -239,7 +335,6 @@ function updateStatus () {
             // Highlight für König im Schach setzen
             var kingSquare = findKingSquare(kingColor); 
             if (kingSquare) {
-                console.log("Schach auf", kingSquare);
                 setTimeout(() => {
                     $('#myBoard .square-' + kingSquare).addClass('highlight-check');
                 }, 10); // Verzögerung, um DOM-Update abzuwarten
@@ -261,7 +356,6 @@ function resetGame() {
     board.position('start'); // Setzt das Schachbrett auf die Startposition zurück
     updateStatus();
     $('#resetButton').removeClass('show');
-    console.log("Neues Spiel gestartet!");
 }
 
 // --- Wird ausgeführt, wenn das Dokument vollständig geladen ist ---
@@ -270,7 +364,7 @@ $(document).ready(function() {
     if (typeof Chess === 'undefined') {
         console.error("Fehler: Chess.js Bibliothek ist nicht geladen oder nicht global verfügbar.");
         alert("Kritischer Fehler: Schachlogik nicht verfügbar.");
-        return; // Stoppe die Ausführung, wenn Chess nicht gefunden ist
+        return;
     }
 
     // Konfiguration für das Schachbrett
@@ -286,17 +380,17 @@ $(document).ready(function() {
     };
     board = Chessboard('myBoard', config);
 
-    // Debug optionen:
-    // console.log("Game object before engine init:", game); 
-    // console.log("Is game an instance of Chess?", game instanceof Chess);
-
     // 'game'-Instanz an die Engine übergeben
-    window.computerEngine = new SimpleChessJsEngine(game); 
+    window.computerEngine = new OhanaAi(game); 
     
-    updateStatus(); // Initialen Status setzen, wenn das Spiel startet
+    updateStatus();
 
     $('#resetButton').on('click', function() {
-        resetGame(); // Rufe Reset-Funktion auf
+        resetGame();
+    });
+
+    $('#logo').on('click', function() {
+        resetGame();
     });
 
     $(window).on('resize', function() {

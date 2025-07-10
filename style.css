@@ -16,7 +16,7 @@ body {
 }
 #main-container {
     display: flex;
-    flex-direction: column; /* Elemente untereinander anordnen */
+    flex-direction: column;
     align-items: center;
     max-width: 500px;
     width: 100%;
@@ -76,11 +76,11 @@ h2 {
     padding: 10px 15px;
     font-size: 7em;
     cursor: pointer;
-    background-color: rgba(60, 60, 60, 1);
+    background-color: rgba(60, 60, 60, 0.9);
     color: #f0d9b5;
     border: 1px solid rgba(255, 255, 255, 1);
     border-radius: 5px;
-    /* Standardmäßig unsichtbar: */
+    /* Unsichtbar bis hover event */
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease-in-out;
@@ -90,5 +90,5 @@ h2 {
     pointer-events: auto;
 }
 .overlay-button:hover {
-    background-color: rgba(90, 90, 90, 0.9);
+    background-color: rgba(90, 90, 90, 0.8);
 }
