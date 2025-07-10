@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "start": "node localServer"
+  },
+  "dependencies": {
+    "browser-sync": "^3.0.4"
+  }
+}
