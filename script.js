@@ -16,16 +16,16 @@ class OhanaAi {
         };
 
         this.CHECKMATE_LOSS_PENALTY = 100000;
-        this.CHECK_PENALTY = 100;
-        this.UNPROTECTED_LOSS_PENALTY = 100;
-        this.PAWN_ADVANCE_PENALTY = 30;
+        this.CHECK_PENALTY = 30;
+        this.UNPROTECTED_LOSS_PENALTY = 10;
+        this.PAWN_ADVANCE_PENALTY = 1;
         this.BAD_PAWN_MOVE_PENALTY = 50;
-        this.KING_MOVE_PENALTY = 100;
+        this.KING_MOVE_PENALTY = 20;
         this.CASTLE_SHORT_BONUS = 90;
-        this.CASTLE_LONG_BONUS = 50;
+        this.CASTLE_LONG_BONUS = 70;
         this.FIANCHETTO_G7_BONUS = 20;
-        this.DEVELOPMENT_BONUS = 60;
-        this.QUEEN_EARLY_MOVE_PENALTY = 70;
+        this.DEVELOPMENT_BONUS = 30;
+        this.QUEEN_EARLY_MOVE_PENALTY = 50;
 
         this.PAWN_TABLE = [
             0,  0,  0,  0,  0,  0,  0,  0,
