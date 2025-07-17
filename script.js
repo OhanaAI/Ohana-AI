@@ -12,7 +12,7 @@ class OhanaAi {
             'b': 300,
             'r': 500,
             'q': 900,
-            'k': 0
+            'k': 100000
         };
 
         this.CHECKMATE_LOSS_PENALTY = 100000;
@@ -23,30 +23,105 @@ class OhanaAi {
         this.KING_MOVE_PENALTY = 20;
         this.CASTLE_SHORT_BONUS = 90;
         this.CASTLE_LONG_BONUS = 70;
-        this.FIANCHETTO_G7_BONUS = 20;
-        this.DEVELOPMENT_BONUS = 30;
+        this.DEVELOPMENT_BONUS = 10;
         this.QUEEN_EARLY_MOVE_PENALTY = 50;
 
-        this.PAWN_TABLE = [
-            0,  0,  0,  0,  0,  0,  0,  0,
-            50, 50, 50, 50, 50, 50, 50, 50,
-            10, 10, 20, 30, 30, 20, 10, 10,
-            5,  5, 10, 25, 25, 10,  5,  5,
-            0,  0,  0, 20, 20,  0,  0,  0,
-            5, -5,-10,  0,  0,-10, -5,  5,
-            5, 10, 10,-20,-20, 10, 10,  5,
-            0,  0,  0,  0,  0,  0,  0,  0
-        ];
-        this.KNIGHT_TABLE = [
-            -50,-40,-30,-30,-30,-30,-40,-50,
-            -40,-20,  0,  0,  0,  0,-20,-40,
-            -30,  0, 10, 15, 15, 10,  0,-30,
-            -30,  5, 15, 20, 20, 15,  5,-30,
-            -30,  0, 15, 20, 20, 15,  0,-30,
-            -30,  5, 10, 15, 15, 10,  5,-30,
-            -40,-20,  0,  5,  5,  0,-20,-40,
-            -50,-40,-30,-30,-30,-30,-40,-50
-        ];
+        // Piece Square Values aus Sunfish-Algorithmus
+        this.pieceSquareTables = {
+            'p': [
+                0, 0, 0, 0, 0, 0, 0, 0,
+                5, 10, 10, -20, -20, 10, 10, 5,
+                5, -5, -10, 0, 0, -10, -5, 5,
+                0, 0, 0, 20, 20, 0, 0, 0,
+                5, 5, 10, 25, 25, 10, 5, 5,
+                10, 10, 20, 30, 30, 20, 10, 10,
+                50, 50, 50, 50, 50, 50, 50, 50,
+                0, 0, 0, 0, 0, 0, 0, 0
+            ],
+            'n': [
+                -50, -40, -30, -30, -30, -30, -40, -50,
+                -40, -20, 0, 0, 0, 0, -20, -40,
+                -30, 0, 10, 15, 15, 10, 0, -30,
+                -30, 5, 15, 20, 20, 15, 5, -30,
+                -30, 0, 15, 20, 20, 15, 0, -30,
+                -30, 5, 10, 15, 15, 10, 5, -30,
+                -40, -20, 0, 5, 5, 0, -20, -40,
+                -50, -40, -30, -30, -30, -30, -40, -50
+            ],
+            'b': [
+                -20, -10, -10, -10, -10, -10, -10, -20,
+                -10, 0, 0, 0, 0, 0, 0, -10,
+                -10, 0, 5, 10, 10, 5, 0, -10,
+                -10, 5, 5, 10, 10, 5, 5, -10,
+                -10, 0, 10, 10, 10, 10, 0, -10,
+                -10, 10, 10, 10, 10, 10, 10, -10,
+                -10, 5, 0, 0, 0, 0, 5, -10,
+                -20, -10, -10, -10, -10, -10, -10, -20
+            ],
+            'r': [
+                0, 0, 0, 5, 5, 0, 0, 0,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                -5, 0, 0, 0, 0, 0, 0, -5,
+                5, 10, 10, 10, 10, 10, 10, 5,
+                0, 0, 0, 0, 0, 0, 0, 0
+            ],
+            'q': [
+                -20, -10, -10, -5, -5, -10, -10, -20,
+                -10, 0, 0, 0, 0, 0, 0, -10,
+                -10, 0, 5, 5, 5, 5, 0, -10,
+                -5, 0, 5, 5, 5, 5, 0, -5,
+                0, 0, 5, 5, 5, 5, 0, -5,
+                -10, 5, 5, 5, 5, 5, 0, -10,
+                -10, 0, 5, 0, 0, 0, 0, -10,
+                -20, -10, -10, -5, -5, -10, -10, -20
+            ],
+            'k': [
+                20, 30, 10, 0, 0, 10, 30, 20,
+                20, 20, 0, 0, 0, 0, 20, 20,
+                -10, -20, -20, -20, -20, -20, -20, -10,
+                -20, -30, -30, -40, -40, -30, -30, -20,
+                -30, -40, -40, -50, -50, -40, -40, -30,
+                -30, -40, -40, -50, -50, -40, -40, -30,
+                -30, -40, -40, -50, -50, -40, -40, -30,
+                -30, -40, -40, -50, -50, -40, -40, -30
+            ]
+        };
+    }
+
+    // --- Hilfsfunktion, um zu prüfen, ob ein Feld von einer Figur der gleichen Farbe gedeckt ist ---
+    isProtected(square) {
+        const pieceOnSquare = this.game.get(square);
+        if (!pieceOnSquare) {
+            return false;
+        }
+
+        const defendingColor = pieceOnSquare.color;
+        const opponentColor = (defendingColor === 'w') ? 'b' : 'w';
+        
+        // Prüfe alle Züge des Gegners
+        const opponentMoves = this.game.moves({ verbose: true, color: opponentColor });
+
+        for (let i = 0; i < opponentMoves.length; i++) {
+            const move = opponentMoves[i];
+            // Überprüfen, ob der Zug auf das zu schützende Feld zielt
+            if (move.to === square) {
+                // Hier prüfen wir, ob die Angreifer-Figur von ihrer eigenen Seite gedeckt ist
+                const attacker = this.game.get(move.from);
+                if (attacker && attacker.color === opponentColor) {
+                    // Ein Gegner kann das Feld angreifen. Jetzt prüfen wir, ob die Figur auf dem Feld gedeckt ist
+                    const defendingMoves = this.game.moves({ verbose: true, color: defendingColor });
+                    for(let j = 0; j < defendingMoves.length; j++) {
+                        if (defendingMoves[j].to === square) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     // Bewertet ersten Sequenz-Zug für die Sortierung im Pruning
@@ -67,9 +142,6 @@ class OhanaAi {
         const tempGame = new Chess(this.game.fen()); // Erstelle eine Kopie des Spiels
         tempGame.move(move); // Führe den Zug auf der Kopie aus
 
-        if (tempGame.inCheck()) {
-            score += 1; // Bonus für Schach
-        }
         // Das temporäre Spielobjekt wird am Ende der Funktion von der Garbage Collection entfernt
         
         return score;
@@ -78,47 +150,68 @@ class OhanaAi {
     // --- Positions-Bewertung ---
     evaluatePosition() {
         let score = 0;
-        const board = this.game.board();
+        const currentPosition = this.game.board();
 
-        // Material- und Positionsbewertung
+        // Debugging: Position zur Evaluation
+        // console.log("FEN:", this.game.fen());
+
         for (let i = 0; i < 8; i++) {
             for (let j = 0; j < 8; j++) {
-                const piece = board[i][j];
+                const piece = currentPosition[i][j];
                 if (piece) {
-                    let pieceValue = this.pieceValues[piece.type];
-                    let positionValue = 0;
+                    // Debugging: Zeigt, welche Figur gerade bewertet wird
+                    // console.log(`Bewerte Figur: ${piece.color} ${piece.type} auf ${piece.square}`);
 
-                    // Index der Tabelle finden (für Schwarz spiegeln)
+                    // Bewertung nach Figurenwert
+                    score += (piece.color === 'w' ? this.pieceValues[piece.type] : -this.pieceValues[piece.type]);
+
+                    /*
+                    // Bewertung nach Position (Piece Square Table)
+                    let table = this.pieceSquareTables[piece.type];
                     let tableIndex = (piece.color === 'w') ? (i * 8 + j) : ((7 - i) * 8 + j);
-                    
-                    // PSTs anwenden
-                    if (piece.type === 'p') {
-                        positionValue = this.PAWN_TABLE[tableIndex];
-                    } else if (piece.type === 'n') {
-                        positionValue = this.KNIGHT_TABLE[tableIndex];
-                    }
-                    
-                    if (piece.color === 'w') {
-                        score += pieceValue + positionValue;
-                    } else {
-                        score -= (pieceValue + positionValue);
-                    }
+                    score += (piece.color === 'w' ? table[tableIndex] : -table[tableIndex]);
+                    */
                 }
             }
         }
+
+        /*
+        // --- Boni und Mali für den letzten Zug ---
+        const history = this.game.history({ verbose: true });
+        // Debugging: Historie
+        //console.log("Spielt-Historie-Länge:", history.length);
         
-        // Belohnung für noch vorhandene Rochade-Rechte
-        const fen = this.game.fen();
-        const fenParts = fen.split(' ');
-        const castlingRights = fenParts[2]; // Der dritte Teil des FEN-Strings
+        // Prüfe, ob es überhaupt einen letzten Zug gibt
+        if (history.length > 0) {
+            const lastMove = history[history.length - 1];
+            // Debugging: Letzter evaluierter Zug
+            // console.log("Letzter Zug:", lastMove);
 
-        if (castlingRights.includes('K')) { // Weiß darf kurz rochieren
-            score += this.CASTLE_SHORT_BONUS;
+            // Bonus für Rochade
+            if (lastMove.flags === 'k') {
+                score += (lastMove.color === 'w' ? this.CASTLE_SHORT_BONUS : -this.CASTLE_SHORT_BONUS);
+            } else if (lastMove.flags === 'q') {
+                score += (lastMove.color === 'w' ? this.CASTLE_LONG_BONUS : -this.CASTLE_LONG_BONUS);
+            }
+            // Malus für einen frühen Damenzug
+            if (lastMove.piece === 'q' && history.length < 4) {
+                score -= (lastMove.color === 'w' ? this.QUEEN_EARLY_MOVE_PENALTY : -this.QUEEN_EARLY_MOVE_PENALTY);
+            }
+            // Malus für Königszug, der keine Rochade ist
+            if (lastMove.piece === 'k' && lastMove.flags !== 'k' && lastMove.flags !== 'q') {
+                score -= (lastMove.color === 'w' ? this.KING_MOVE_PENALTY : -this.KING_MOVE_PENALTY);
+            }
+            // Malus für schlechte Bauernzüge
+            if (lastMove.piece === 'p') {
+                if (lastMove.from === 'f7' && (lastMove.to === 'f6' || lastMove.to === 'f5')) {
+                    score -= (lastMove.color === 'w' ? this.BAD_PAWN_MOVE_PENALTY : -this.BAD_PAWN_MOVE_PENALTY);
+                }
+                if ((lastMove.from === 'g7' || lastMove.from === 'g6') && lastMove.to === 'g5') {
+                    score -= (lastMove.color === 'w' ? this.PAWN_ADVANCE_PENALTY : -this.PAWN_ADVANCE_PENALTY);
+                }
+            }
         }
-        if (castlingRights.includes('k')) { // Schwarz darf kurz rochieren
-            score -= this.CASTLE_SHORT_BONUS;
-        }
-
+        */
         return score;
     }
 
@@ -193,7 +286,7 @@ class OhanaAi {
                     return bestMove.san;
                 }
             } catch (error) {
-                console.error("Fehler beim Abruf der Tablebase:", error);
+                console.error("Tablebase error:", error);
             }
         }
         return null; // Keine Verbindung, Fallback zu Minimax
@@ -201,12 +294,12 @@ class OhanaAi {
 
     // --- Hauptfunktion makeMove ---
     async makeMove() {
-        // Feste Eröffnungslogik
+        // --- Feste Eröffnungslogik ---
         const history = this.game.history();
         if (history.length === 1) {
             if (history[0] === 'e4') {
-                this.game.move('e6');
-                return 'e6';
+                this.game.move('e5');
+                return 'e5';
             }
             if (history[0] === 'd4') {
                 this.game.move('d5');
@@ -221,7 +314,7 @@ class OhanaAi {
         // Zuerst Tablebase prüfen
         const tablebaseMove = await this.getBestMoveFromTablebase();
         if (tablebaseMove) {
-            console.log("Syzygy");
+            console.log("Maximale Tiefe entfesselt");
             this.game.move(tablebaseMove);
             return tablebaseMove;
         }
@@ -229,11 +322,10 @@ class OhanaAi {
         // Wenn keine Tablebase-Antwort, Minimax ausführen
         const possibleMoves = this.game.moves({ verbose: true });
         
-        // Dynamische Suchtiefe
         const historyLength = this.game.history().length;
         let SEARCH_DEPTH;
-        if (historyLength <= 4) {
-            SEARCH_DEPTH = 3;
+        if (historyLength <= 6) {
+            SEARCH_DEPTH = 2;
         } else {
             SEARCH_DEPTH = 3;
         }
@@ -244,52 +336,24 @@ class OhanaAi {
         for (let i = 0; i < possibleMoves.length; i++) {
             let move = possibleMoves[i];
             
-            // Simuliere Zug
             this.game.move(move);
             
-            // Prüfung auf Matt in 1
             if (this.game.isCheckmate()) {
                 this.game.undo();
                 this.game.move(move);
                 return move;
             }
             
-            // Bewertung des Zugs durch Aufruf der Minimax-Funktion
             let moveValue = this.minimax(SEARCH_DEPTH - 1, false, -Infinity, Infinity);
             
             this.game.undo();
             
-            // Boni und Mali anwenden
-            if (move.flags === 'k') {
-                moveValue -= this.CASTLE_SHORT_BONUS;
-            }
-            if (move.piece === 'n' || move.piece === 'b') {
-                let fromRank = parseInt(move.from[1]);
-                let toRank = parseInt(move.to[1]);
-                if ((fromRank === 7 || fromRank === 8) && (toRank === 6 || toRank === 5)) {
-                    moveValue -= this.DEVELOPMENT_BONUS;
-                }
-            }
-            if (move.piece === 'q' && this.game.history().length < 4) {
-                moveValue += this.QUEEN_EARLY_MOVE_PENALTY;
-            }
-            if (move.piece === 'p' && move.from === 'f7' && (move.to === 'f6' || move.to === 'f5')) {
-                moveValue += this.BAD_PAWN_MOVE_PENALTY;
-            }
-            if (move.piece === 'p' && (move.from === 'g7' || move.from === 'g6') && move.to === 'g5') {
-                moveValue += this.PAWN_ADVANCE_PENALTY;
-            }
-            if (move.piece === 'k' && move.flags !== 'k') {
-                moveValue += this.KING_MOVE_PENALTY;
-            }
-            if (move.flags.includes('p')) {
-                moveValue -= (this.pieceValues['q'] - this.pieceValues['p']); 
-            }
+            // Leichte zufälligkeit für mehr Abwechslung:
+            // moveValue += Math.random() * 0.1;
+            
+            // Debugging: Gib den Wert jedes Zuges in der Konsole aus
+            // console.log(`Zug: ${move.san}, Wert: ${moveValue}`);
 
-            // Zufälligkeit
-            moveValue += Math.random() * 0.1;
-
-            // Wähle den besten Zug
             if (moveValue < bestValue) {
                 bestValue = moveValue;
                 bestMove = move;
@@ -302,6 +366,8 @@ class OhanaAi {
             this.game.move(randomMove);
             return randomMove;
         }
+        
+        console.log(`Ohana wählt Zug: ${bestMove.san} mit Wert: ${bestValue}`);
         this.game.move(bestMove);
         return bestMove;
     }
@@ -418,7 +484,7 @@ function updateStatus () {
     // Schachmatt
     if (game.isCheckmate()) {
         if (moveColor == 'Schwarz') {
-            status = 'Du hast gewonnen!';
+            status = '!';
         }
         else {
             status = 'Schachmatt.';
@@ -426,7 +492,7 @@ function updateStatus () {
         gameIsOver = true;
         var kingSquare = findKingSquare(kingColor);
         if (kingSquare) {
-            console.log("Matt auf", kingSquare);
+            console.log("Schachmatt");
             setTimeout(() => {
                 $('#myBoard .square-' + kingSquare).addClass('highlight-checkmate');
             }, 10); // Verzögerung, um DOM-Update abzuwarten
